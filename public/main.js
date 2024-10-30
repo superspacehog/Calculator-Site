@@ -1,14 +1,16 @@
 //Defining some global utility variables
-var isChannelReady = false;
 var isInitiator = false;
 var isStarted = false;
+var isHost = false;
 var localStream;
 var pc;
 var remoteStream;
 var turnReady;
 var room = null;
-var localVideo = null;
-var remoteVideo = null;
+var video = null;
+var keyStrock = null;
+var mouseCords = null;
+var click = null;
 
 //Initialize turn/stun server here
 //turnconfig will be defined in public/js/config.js
@@ -20,27 +22,34 @@ var socket = io.connect();
 //Defining socket events
 
 //Event - Client has created the room i.e. is the first member of the room
-socket.on('created', function(room) {
+socket.on('host', function(room) {
   console.log('Created room ' + room);
   isInitiator = true;
-});
+  isHost = true;
 
-//Event - Room is full
-socket.on('full', function(room) {
-  console.log('Room ' + room + ' is full');
-});
+  console.log("Going to find Local media");
+  navigator.mediaDevices.getDisplayMedia()
+  .then(gotStream)
+  .catch(function(e) {
+    alert('getUserMedia() error: ' + e.name);
+  });
 
-//Event - Another client tries to join room
-socket.on('join', function (room){
-  console.log('Another peer made a request to join room ' + room);
-  console.log('This peer is the initiator of room ' + room + '!');
-  isChannelReady = true;
+  document.getElementById("calcTitle").innerHTML = "Host";
 });
 
 //Event - Client has joined the room
-socket.on('joined', function(room) {
+socket.on('client', function(room) {
   console.log('joined: ' + room);
-  isChannelReady = true;
+  document.getElementById("calcTitle").innerHTML = "Client";
+  sendMessage('start', room);
+
+  document.getElementsByTagName('body')[0].onkeyup = function(e) { 
+    socket.emit('message', {type: "key", data: e.key}, room);
+  }
+
+  document.onmousemove = mouseMove
+  document.onmousedown = mouseDown
+  document.onmouseup = mouseUp
 });
 
 //Event - server asks to log a message
@@ -53,7 +62,7 @@ socket.on('log', function(array) {
 //The Driver code
 socket.on('message', function(message, room) {
     console.log('Client received message:', message,  room);
-    if (message === 'got user media') {
+    if (message === 'start') {
       maybeStart();
     } else if (message.type === 'offer') {
       if (!isInitiator && !isStarted) {
@@ -69,6 +78,17 @@ socket.on('message', function(message, room) {
         candidate: message.candidate
       });
       pc.addIceCandidate(candidate);
+    } else if (message.type === 'key' && isStarted) {
+      keyStrock.innerHTML = message.data
+    } else if (message.type === 'mouse' && isStarted) {
+      let coor = "(" + message.x + "," + message.y + ")";
+      mouseCords.innerHTML = coor;
+    } else if (message.type === 'click' && isStarted) {
+      if (message.button == 0) {
+        click.innerHTML = "left " + message.press
+      } else if (message.button == 2) {
+        click.innerHTML = "right " + message.press
+      }
     } else if (message === 'bye' && isStarted) {
       handleRemoteHangup();
     }
@@ -86,20 +106,19 @@ function sendMessage(message, room) {
 function gotStream(stream) {
   console.log('Adding local stream.');
   localStream = stream;
-  localVideo.srcObject = stream;
-  sendMessage('got user media', room);
-  if (isInitiator) {
-    maybeStart();
-  }
+  video.srcObject = stream;
 }
 
 //If initiator, create the peer connection
 function maybeStart() {
-  console.log('>>>>>>> maybeStart() ', isStarted, localStream, isChannelReady);
-  if (!isStarted && typeof localStream !== 'undefined' && !isChannelReady) {
+  if (!isStarted) {
     console.log('>>>>>> creating peer connection');
     createPeerConnection();
-    pc.addStream(localStream);
+
+    if (isHost == true) {
+      pc.addStream(localStream);
+    }
+
     isStarted = true;
     console.log('isInitiator', isInitiator);
     if (isInitiator) {
@@ -178,7 +197,7 @@ function onCreateSessionDescriptionError(error) {
 function handleRemoteStreamAdded(event) {
   console.log('Remote stream added.');
   remoteStream = event.stream;
-  remoteVideo.srcObject = remoteStream;
+  video.srcObject = remoteStream;
 }
 
 function handleRemoteStreamRemoved(event) {
@@ -203,18 +222,36 @@ function stop() {
   pc = null;
 }
 
+function goFullscreen() {   
+  if (video.mozRequestFullScreen) {
+    video.mozRequestFullScreen();
+  } else if (video.webkitRequestFullScreen) {
+    video.webkitRequestFullScreen();
+  }  
+}
+
+function mouseMove(e) {
+  let mx = e.clientX;
+  let my = e.clientY;
+  socket.emit('message', {type: "mouse", x: mx, y: my}, room);
+}
+
+function mouseDown(e) {
+  socket.emit('message', {type: "click", press: "down", button: e.button}, room);
+}
+
+function mouseUp(e) {
+  socket.emit('message', {type: "click", press: "up", button: e.button}, room);
+}
+
 function loadStream() {
   room = prompt('Enter room name:');
   
-  localVideo = document.querySelector('#localVideo');
-  remoteVideo = document.querySelector('#remoteVideo');
-  console.log("Going to find Local media");
-  navigator.mediaDevices.getDisplayMedia()
-  .then(gotStream)
-  .catch(function(e) {
-    alert('getUserMedia() error: ' + e.name);
-  });
-  
+  video = document.querySelector('#video');
+  keyStrock = document.querySelector('#keyStrock');
+  mouseCords = document.querySelector('#mouseCords');
+  click = document.querySelector('#click');
+
   if (room !== '') {
     socket.emit('create or join', room);
     console.log('Attempted to create or  join room', room);
